@@ -1,0 +1,171 @@
+-- Netflix Data Analysis using SQL
+-- Solutions of 15 business problems
+
+--1. Count the number of Movies vs TV Shows.
+
+SELECT type, COUNT(*) AS  Total_Number FROM [dbo].[netflix_title]
+GROUP BY type ;
+
+--2. Find the most common rating for movies and TV shows
+
+WITH CTE AS(
+SELECT type, rating , COUNT(*) AS total_rating_number,
+RANK() OVER 
+( PARTITION BY type ORDER BY COUNT(*) DESC) AS Ranking
+FROM [dbo].[netflix_title]
+GROUP BY type, rating )
+SELECT type,rating,total_rating_number  FROM CTE WHERE Ranking = 1 ;
+
+--3. List all movies released in a specific year (e.g., 2020)
+
+SELECT title FROM [dbo].[netflix_title] 
+WHERE release_year = 2020 AND type = 'Movie' ;
+
+--4. Find the top 5 countries with the most content on Netflix.
+
+WITH SplitCountries AS
+(
+    SELECT
+        TRIM(value) AS Country
+    FROM
+        [dbo].[netflix_title] 
+    CROSS APPLY
+        STRING_SPLIT(country, ',')
+)
+SELECT TOP 5
+    Country,
+    COUNT(*) AS ContentCount
+FROM
+    SplitCountries
+GROUP BY
+    Country
+ORDER BY
+    ContentCount DESC; 
+
+--5. Identify the longest movie.
+
+WITH CTE AS (
+SELECT title,CAST(SUBSTRING(duration,1,CHARINDEX(' ',duration)-1) AS INT) AS Time_Duration  FROM  [dbo].[netflix_title] 
+WHERE type = 'movie')
+SELECT  TOP 1 title , MAX(Time_Duration) AS Duration FROM CTE
+GROUP BY title
+ORDER BY MAX(Time_Duration) DESC ;
+
+--6- Find content added in the last 5 years .
+
+WITH CTE AS
+(
+SELECT show_id,type, title ,
+DATEDIFF(YEAR,date_added,GETDATE() )AS Year_difference 
+FROM [dbo].[netflix_title]
+)
+SELECT * FROM CTE 
+WHERE Year_difference <= 5;
+
+--7. Find all the movies/TV shows by director 'Rajiv Chilaka'!
+
+WITH CTE AS
+(
+SELECT 
+   type,title, 
+   TRIM(value) AS Director
+   FROM [dbo].[netflix_title]
+   CROSS APPLY 
+   STRING_SPLIT(director,',')
+)
+SELECT * FROM CTE 
+WHERE Director ='Rajiv Chilaka';
+
+--8. List all TV shows with more than 5 seasons.
+
+WITH CTE AS 
+(
+SELECT type,title,CAST(SUBSTRING(duration,1,CHARINDEX(' ',duration)-1) AS INT ) AS Seasons
+FROM [dbo].[netflix_title]
+WHERE type ='TV Show'
+)
+SELECT * FROM CTE WHERE Seasons > 5 ;
+
+--9. Count the number of content items in each genre.
+
+WITH Genre_Type AS 
+(
+SELECT 
+     type , title,
+     TRIM(VALUE) AS Genre
+     FROM [dbo].[netflix_title]
+	 CROSS APPLY 
+	 STRING_SPLIT(listed_in,',')
+)
+SELECT Genre , COUNT(*) AS Total_Count
+FROM Genre_Type
+GROUP BY Genre
+ORDER BY COUNT(*) DESC;
+
+--10.Find each year and the average numbers of content release in India on netflix. 
+--return top 5 year with highest avg content release!
+
+SELECT YEAR(date_added) AS Year,
+       COUNT(*) AS Total_Count,
+	   COUNT(*)*100.00/ ( SELECT COUNT(*) FROM [dbo].[netflix_title] WHERE country = 'India') AS Average
+	   FROM [dbo].[netflix_title]
+	   WHERE country ='India'
+	   GROUP BY YEAR(date_added) ;
+
+
+--11. List all movies that are documentaries
+
+WITH CTE AS 
+(
+SELECT TYPE,title,
+TRIM(VALUE) AS Genre
+FROM [dbo].[netflix_title]
+CROSS APPLY
+string_split(listed_in,',')
+)
+SELECT * FROM CTE
+WHERE type = 'Movie' AND Genre = 'Documentaries' ;
+
+--12. Find all content without a director
+
+SELECT * FROM  [dbo].[netflix_title]
+WHERE director IS NULL ;
+
+--13. Find how many movies actor 'Salman Khan' appeared in last 10 years!
+
+SELECT * FROM [dbo].[netflix_title]
+WHERE cast LIKE '%Salman Khan%' 
+AND release_year > YEAR(GETDATE())-10 ;
+
+--14. Find the top 10 actors who have appeared in the highest number of movies produced in India.
+
+WITH CTE AS
+(
+SELECT * ,
+      TRIM(VALUE) AS Actors
+	  FROM [dbo].[netflix_title]
+	  CROSS APPLY
+	  string_split(cast,',')
+)
+SELECT TOP 10 Actors,COUNT(*) AS Total_Count
+FROM CTE
+WHERE country LIKE '%India%'
+GROUP BY Actors 
+ORDER BY COUNT(*) DESC;
+
+--15.Categorize the content based on the presence of the keywords 'kill' and 'violence' in 
+--the description field. Label content containing these keywords as 'Bad' and all other 
+--content as 'Good'. Count how many items fall into each category.
+
+WITH CTE AS
+(
+SELECT *,
+      CASE
+	  WHEN description LIKE '%Kill%'  OR description LIKE '%violence%' THEN 'Bad'
+	  ELSE 'Good'
+	  END AS Category
+	  FROM [dbo].[netflix_title] 
+)
+SELECT Category , COUNT(*)  AS Total_Number FROM CTE
+GROUP BY Category ;
+
