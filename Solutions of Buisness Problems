@@ -3,8 +3,11 @@
 
 -1. Count the number of Movies vs TV Shows.
 
+``` SQL 
 SELECT type, COUNT(*) AS  Total_Number FROM [dbo].[netflix_title]
-GROUP BY type ;
+GROUP BY type 
+;
+```
 
 -2. Find the most common rating for movies and TV shows
 
